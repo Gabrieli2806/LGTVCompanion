@@ -1755,17 +1755,18 @@ static int RawInput_ReadInt16(const BYTE* data)
 	return value;
 }
 
-// Compare the user-actuated fields of two Steam Controller 2 ("Triton") state report
-// payloads. Packed layout per SDL's steam/controller_structs.h: seq_num (1 byte),
-// buttons (4 bytes), triggers, sticks and trackpads as consecutive 16-bit values.
-// The sequence number, trackpad timestamp and IMU fields change on every packet
-// regardless of user interaction and must not count as activity.
+// Compare the user-actuated fields of two Steam Controller 2 ("Triton") state reports.
+// Buffers start at the report ID byte; packed payload layout per SDL's
+// steam/controller_structs.h: seq_num (1 byte), buttons (4 bytes), then triggers,
+// sticks and trackpads as consecutive 16-bit values. The sequence number, trackpad
+// timestamp and IMU fields change on every packet regardless of user interaction
+// and must not count as activity.
 static bool RawInput_TritonStateChanged(const BYTE* previous, const BYTE* current, bool padsShifted)
 {
-	if (memcmp(previous + 1, current + 1, 4) != 0) // buttons bitmask, includes capacitive touch
+	if (memcmp(previous + 2, current + 2, 4) != 0) // buttons bitmask, includes capacitive touch
 		return true;
 	const int sensitivity = (int)(0.045 * 65535); // same sensitivity as the generic axis detection
-	static const DWORD axisOffsets[] = { 5, 7, 9, 11, 13, 15 }; // triggers L/R, sticks LX/LY/RX/RY
+	static const DWORD axisOffsets[] = { 6, 8, 10, 12, 14, 16 }; // triggers L/R, sticks LX/LY/RX/RY
 	for (DWORD offset : axisOffsets)
 	{
 		if (abs(RawInput_ReadInt16(previous + offset) - RawInput_ReadInt16(current + offset)) >= sensitivity)
@@ -1773,7 +1774,7 @@ static bool RawInput_TritonStateChanged(const BYTE* previous, const BYTE* curren
 	}
 	// Trackpads: X, Y, pressure for left then right. The 0x47 report inserts a 16-bit
 	// trackpad timestamp before this block.
-	const DWORD padBase = padsShifted ? 19 : 17;
+	const DWORD padBase = padsShifted ? 20 : 18;
 	for (DWORD offset = padBase; offset < padBase + 12; offset += 2)
 	{
 		if (abs(RawInput_ReadInt16(previous + offset) - RawInput_ReadInt16(current + offset)) >= sensitivity)
